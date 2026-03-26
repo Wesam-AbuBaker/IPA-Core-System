@@ -357,7 +357,9 @@ async function renderDashboard(){
     </div>
 
     <div style="margin-top:30px;">
-      <canvas id="chart" height="120"></canvas>
+      <div class="chart-card">
+        <canvas id="chart" height="120"></canvas>
+      </div>
     </div>
 
   </div>
@@ -409,7 +411,9 @@ async function renderDashboard(){
         labels:labels,
         datasets:[{
           label:"عدد المختبرات",
-          data:data
+          data:data,
+          backgroundColor: labels.map(l => COLORS[l] || "#999"),
+          borderRadius:6
         }]
       },
       options:{
