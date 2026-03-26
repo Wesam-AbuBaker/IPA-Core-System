@@ -370,6 +370,26 @@ async function renderDashboard(){
     counts[mode] = (counts[mode]||0)+1;
   });
 
+  // ===== STATS =====
+  document.getElementById("statSchools").textContent =
+    new Set(state.labs.map(l=>l.school)).size;
+
+  document.getElementById("statLabs").textContent =
+    state.labs.length;
+
+  // ===== MODE CARDS =====
+  let html = "";
+
+  for(let mode in counts){
+    html += `
+      <div class="mode-card" style="background:${COLORS[mode] || "#999"}">
+        ${mode} : ${counts[mode]}
+      </div>
+    `;
+  }
+
+  document.getElementById("modeStats").innerHTML = html;
+
   const labels = Object.keys(counts);
   const data = Object.values(counts);
 
