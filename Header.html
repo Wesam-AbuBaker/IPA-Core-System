@@ -1,0 +1,63 @@
+<div class="navbar">
+
+  <!-- ===== LEFT ===== -->
+  <div class="nav-left">
+
+    <img class="logo" src="https://ipa.edu.jo/wp-content/uploads/2023/09/logo-1.png">
+
+    <div class="app-title">
+      <span class="main">IPA Dashboard</span>
+      <span class="sub">نظام إدارة المختبرات</span>
+    </div>
+
+    <div class="menu">
+
+      <div class="menu-item" onclick="navigate('schools')">
+        <i class="fa-solid fa-house"></i>
+        الرئيسية
+      </div>
+
+      <div class="menu-item" onclick="navigate('dashboard')">
+        <i class="fa-solid fa-chart-line"></i>
+        Dashboard
+      </div>
+
+      <!-- مدارسنا -->
+      <div class="menu-item dropdown-parent" onclick="toggleSchoolsMenu(event)">
+        <i class="fa-solid fa-building"></i>
+        مدارسنا
+        <i class="fa-solid fa-chevron-down small"></i>
+
+        <div id="schoolsMenu" class="dropdown-menu"></div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- ===== RIGHT ===== -->
+  <div class="nav-right">
+
+    <div class="user dropdown-parent" onclick="toggleUserMenu(event)">
+      <div id="avatar" class="avatar">U</div>
+      <div id="username">...</div>
+
+      <div id="userMenu" class="dropdown-menu user-menu"></div>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- ===== CLICK OUTSIDE CLOSE ===== -->
+<script>
+document.addEventListener("click", function(e){
+
+  document.querySelectorAll(".dropdown-menu").forEach(menu=>{
+    if(!menu.parentElement.contains(e.target)){
+      menu.classList.remove("show");
+    }
+  });
+
+});
+</script>

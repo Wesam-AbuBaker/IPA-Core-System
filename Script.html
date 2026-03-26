@@ -1,0 +1,357 @@
+<script>
+
+/* ================= STATE ================= */
+let state = {
+  user: null,
+  labs: [],
+  currentSchool: null,
+  currentLab: null
+};
+
+/* ================= COLORS ================= */
+const COLORS = {
+  lock:"#e53935",
+  unlock:"#1e88e5",
+  open:"#43a047",
+  exam:"#fb8c00",
+  hellocode:"#8e24aa",
+  none:"#9e9e9e",
+  all:"#1e88e5",
+  style:"#fbc02d"
+};
+
+/* ================= ELEMENTS ================= */
+const app = document.getElementById("app");
+const loader = document.getElementById("loader");
+const username = document.getElementById("username");
+const avatar = document.getElementById("avatar");
+const userMenu = document.getElementById("userMenu");
+const schoolsMenu = document.getElementById("schoolsMenu");
+const toastEl = document.getElementById("toast");
+
+/* ================= UI ================= */
+function showLoader(){ loader.classList.remove("hidden"); }
+function hideLoader(){ loader.classList.add("hidden"); }
+
+function toast(msg){
+  toastEl.textContent = msg;
+  toastEl.style.display = "block";
+  setTimeout(()=>toastEl.style.display="none",2000);
+}
+
+/* ================= USER ================= */
+function loadUser(){
+  google.script.run.withSuccessHandler(u=>{
+
+    state.user = u;
+
+    if(!u || !u.name){
+      username.textContent = "غير معروف";
+      avatar.textContent = "?";
+      return;
+    }
+
+    username.textContent = u.name;
+    avatar.textContent = u.name.charAt(0);
+
+    userMenu.innerHTML = `
+      <div><b>${u.name}</b></div>
+      <div style="color:#777">${u.email}</div>
+      <hr>
+      <div>🏫 ${u.school === "ALL" ? "كل المدارس" : u.school}</div>
+      <div>💻 ${u.labs === "ALL" ? "كل المختبرات" : u.labs}</div>
+    `;
+
+  }).getUserData();
+}
+
+/* ================= NAV ================= */
+function navigate(view){
+  if(view === "schools") renderSchools();
+  if(view === "dashboard") renderDashboard();
+}
+
+/* ================= USER MENU ================= */
+function toggleUserMenu(e){
+  e.stopPropagation();
+  userMenu.classList.toggle("show");
+}
+
+/* ================= SCHOOLS MENU ================= */
+function toggleSchoolsMenu(e){
+  e.stopPropagation();
+  schoolsMenu.classList.toggle("show");
+}
+
+function buildSchoolsMenu(){
+
+  let html = "";
+
+  const grouped = {};
+
+  state.labs.forEach(l=>{
+    if(!grouped[l.school]) grouped[l.school] = [];
+    grouped[l.school].push(l);
+  });
+
+  for(let school in grouped){
+
+    html += `<div class="school-group">`;
+    html += `<div class="school-title">${school}</div>`;
+
+    grouped[school].forEach(lab=>{
+      html += `
+        <div class="lab-item" onclick="openLab('${lab.sheetId}')">
+          ${lab.labName}
+        </div>
+      `;
+    });
+
+    html += `</div>`;
+  }
+
+  schoolsMenu.innerHTML = html;
+}
+
+/* ================= OPEN LAB ================= */
+function openLab(id){
+  const lab = state.labs.find(l=>l.sheetId === id);
+
+  state.currentLab = lab;
+  state.currentSchool = lab.school;
+
+  renderSettings(lab);
+  schoolsMenu.classList.remove("active");
+}
+
+/* ================= SCHOOLS ================= */
+function renderSchools(){
+
+  app.innerHTML = "";
+  showLoader();
+
+  setTimeout(()=>{
+
+    hideLoader();
+
+    const grid = document.createElement("div");
+    grid.className = "grid fade";
+
+    const schools = [...new Set(state.labs.map(l=>l.school))];
+
+    schools.forEach(s=>{
+
+      const count = state.labs.filter(l=>l.school === s).length;
+
+      const card = document.createElement("div");
+      card.className = "card";
+
+      card.innerHTML = `
+        <div class="card-icon"><i class="fa-solid fa-school"></i></div>
+        <div class="card-title">${s}</div>
+        <div class="card-sub">عدد المختبرات: ${count}</div>
+      `;
+
+      card.onclick = ()=>{
+        state.currentSchool = s;
+        renderLabs();
+      };
+
+      grid.appendChild(card);
+    });
+
+    app.appendChild(grid);
+
+  },150);
+}
+
+/* ================= LABS ================= */
+async function renderLabs(){
+
+  showLoader();
+
+  const labs = state.labs.filter(l=>l.school === state.currentSchool);
+
+  let allSettings = [];
+
+  try{
+    allSettings = await Promise.all(
+      labs.map(l=>new Promise(res=>{
+        google.script.run.withSuccessHandler(res)
+          .getLabSettings(l.sheetId);
+      }))
+    );
+  }catch(e){
+    console.error(e);
+  }
+
+  hideLoader();
+
+  app.innerHTML = `
+    <div class="breadcrumb">
+      <span onclick="navigate('schools')">الرئيسية</span>
+      <span>${state.currentSchool}</span>
+    </div>
+  `;
+
+  const grid = document.createElement("div");
+  grid.className = "grid fade";
+
+  labs.forEach((lab,i)=>{
+
+    const settings = allSettings[i] || [];
+    const mode = settings.find(s=>s.setting==="Mode")?.value || "none";
+
+    const card = document.createElement("div");
+    card.className = "card";
+
+    card.innerHTML = `
+      <div class="card-icon"><i class="fa-solid fa-desktop"></i></div>
+      <div class="card-title">${lab.labName}</div>
+      <div class="status" style="background:${COLORS[mode]}">${mode}</div>
+    `;
+
+    card.onclick = ()=>{
+      state.currentLab = lab;
+      renderSettings(lab);
+    };
+
+    grid.appendChild(card);
+  });
+
+  app.appendChild(grid);
+}
+
+/* ================= SETTINGS ================= */
+function renderSettings(lab){
+
+  showLoader();
+
+  google.script.run.withSuccessHandler(settings=>{
+
+    hideLoader();
+
+    app.innerHTML = `
+      <div class="breadcrumb">
+        <span onclick="navigate('schools')">الرئيسية</span>
+        <span onclick="renderLabs()">${state.currentSchool}</span>
+        <span>${lab.labName}</span>
+      </div>
+    `;
+
+    const container = document.createElement("div");
+    container.className = "settings fade";
+
+    settings.forEach(s=>{
+
+      const div = document.createElement("div");
+      div.className = "setting";
+
+      let input;
+
+      if(s.options.length){
+        input = document.createElement("select");
+
+        s.options.forEach(o=>{
+          const opt = document.createElement("option");
+          opt.value = o;
+          opt.textContent = o;
+          if(o === s.value) opt.selected = true;
+          input.appendChild(opt);
+        });
+
+      }else{
+        input = document.createElement("input");
+        input.value = s.value;
+      }
+
+      if(COLORS[s.value]){
+        div.style.borderLeft = "6px solid " + COLORS[s.value];
+        div.style.background = COLORS[s.value] + "15";
+      }
+
+      input.onchange = ()=>{
+        google.script.run.withSuccessHandler(()=>{
+          toast("تم التحديث ✔");
+        }).updateSetting(lab.sheetId, s.setting, input.value);
+      };
+
+      div.innerHTML = `<label>${s.setting}</label>`;
+      div.appendChild(input);
+
+      container.appendChild(div);
+    });
+
+    app.appendChild(container);
+
+  }).getLabSettings(lab.sheetId);
+}
+
+/* ================= DASHBOARD ================= */
+async function renderDashboard(){
+
+  showLoader();
+
+  const labs = state.labs;
+
+  const allSettings = await Promise.all(
+    labs.map(l=>new Promise(res=>{
+      google.script.run.withSuccessHandler(res)
+        .getLabSettings(l.sheetId);
+    }))
+  );
+
+  hideLoader();
+
+  app.innerHTML = `<?!= include('Dashboard'); ?>`;
+
+  const counts = {};
+
+  allSettings.forEach(settings=>{
+    const mode = settings.find(s=>s.setting==="Mode")?.value || "none";
+    counts[mode] = (counts[mode]||0)+1;
+  });
+
+  const labels = Object.keys(counts);
+  const data = Object.values(counts);
+
+  new Chart(document.getElementById("chart"),{
+    type:"bar",
+    data:{
+      labels:labels,
+      datasets:[{
+        label:"عدد المختبرات",
+        data:data
+      }]
+    },
+    options:{
+      responsive:true,
+      plugins:{
+        legend:{display:false}
+      }
+    }
+  });
+}
+
+/* ================= INIT ================= */
+function init(){
+
+  showLoader();
+
+  google.script.run.withSuccessHandler(labs=>{
+
+    state.labs = labs;
+
+    hideLoader();
+
+    renderSchools();
+    buildSchoolsMenu();
+
+  }).getLabs();
+
+  loadUser();
+}
+
+init();
+
+</script>
