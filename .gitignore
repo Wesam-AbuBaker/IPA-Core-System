@@ -31,5 +31,3 @@ Thumbs.db
 
 # Package lock 
 package-lock.json
-
-.gitignore
