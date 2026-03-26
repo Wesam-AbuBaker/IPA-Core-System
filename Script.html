@@ -74,7 +74,13 @@ function navigate(view){
 /* ================= USER MENU ================= */
 function toggleUserMenu(e){
   e.stopPropagation();
+
   const menu = document.getElementById("userMenu");
+  const rect = e.currentTarget.getBoundingClientRect();
+
+  menu.style.top = (rect.bottom + 5) + "px";
+  menu.style.right = (window.innerWidth - rect.right) + "px";
+
   menu.classList.toggle("show");
 }
 

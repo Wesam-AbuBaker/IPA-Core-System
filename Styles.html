@@ -91,23 +91,21 @@ body{
 }
 
 .dropdown-menu{
-  position:absolute;
-  top:110%;
-  right:0 !important;
-  left:auto !important;
-  transform:none;
+  position:fixed;
+  top:70px;
+  right:20px;
+  left:auto;
   background:white;
   border:1px solid #ddd;
   border-radius:12px;
   padding:12px;
   min-width:180px;
-  max-width:90vw;
+  max-width:300px;
   width:max-content;
-  box-shadow:0 8px 25px rgba(0,0,0,0.08);
+  box-shadow:0 8px 25px rgba(0,0,0,0.15);
   display:none;
-  z-index:999;
+  z-index:9999;
   word-break:break-word;
-  overflow:hidden;
 }
 
 .dropdown-menu.show{
