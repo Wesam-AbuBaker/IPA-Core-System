@@ -325,7 +325,16 @@ async function renderDashboard(){
 
   hideLoader();
 
-  app.innerHTML = `<?!= include('Dashboard'); ?>`;
+  app.innerHTML = `
+    <div class="dashboard fade">
+      <div class="dashboard-header">
+        <h2>لوحة التحكم</h2>
+        <p>تحليل حالة المختبرات</p>
+      </div>
+
+      <canvas id="chart" height="120"></canvas>
+    </div>
+  `;
 
   const counts = {};
 
@@ -337,22 +346,33 @@ async function renderDashboard(){
   const labels = Object.keys(counts);
   const data = Object.values(counts);
 
-  new Chart(document.getElementById("chart"),{
-    type:"bar",
-    data:{
-      labels:labels,
-      datasets:[{
-        label:"عدد المختبرات",
-        data:data
-      }]
-    },
-    options:{
-      responsive:true,
-      plugins:{
-        legend:{display:false}
-      }
+  setTimeout(() => {
+
+    const canvas = document.getElementById("chart");
+    if(!canvas){
+      console.error("Chart canvas not found");
+      return;
     }
-  });
+
+    const ctx = canvas.getContext("2d");
+
+    new Chart(ctx,{
+      type:"bar",
+      data:{
+        labels:labels,
+        datasets:[{
+          label:"عدد المختبرات",
+          data:data
+        }]
+      },
+      options:{
+        responsive:true,
+        plugins:{
+          legend:{display:false}
+        }
+      }
+    });
+  }, 50);
 }
 
 /* ================= INIT ================= */
