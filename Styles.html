@@ -89,18 +89,21 @@ body{
 .dropdown-menu{
   position:absolute;
   top:110%;
-  right:0;           /* مهم جداً */
-  left:auto;         /* يمنع التمدد لليسار */
+  right:0;
+  left:auto;
+  transform:translateX(0);
   background:white;
   border:1px solid #ddd;
   border-radius:12px;
   padding:12px;
-  min-width:200px;
-  max-width:260px;   /* يمنع التمدد */
+  min-width:180px;
+  max-width:90vw;
+  width:max-content;
   box-shadow:0 8px 25px rgba(0,0,0,0.08);
   display:none;
   z-index:999;
   word-break:break-word;
+  overflow:hidden;
 }
 
 .dropdown-menu.show{
@@ -158,6 +161,14 @@ body{
   justify-content:center;
   text-align:center;
   gap:8px;
+}
+
+@media (max-width: 600px){
+  .dropdown-menu{
+    right:10px;
+    left:10px;
+    max-width:calc(100vw - 20px);
+  }
 }
 
 .card:hover{
