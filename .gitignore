@@ -1,33 +1,26 @@
-# Node.js
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# clasp
+# Local clasp credentials/config
 .clasp.json
-appsscript.json
+
+# Dependencies
+node_modules/
 
 # Logs
 logs/
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# OS files
-.DS_Store
-Thumbs.db
-
-# VS Code
+# Editor
 .vscode/
 
-# Environment variables
+# Environment files
 .env
 
 # Temporary files
 *.tmp
 *.temp
 
-# Google Apps Script backup (optional)
-.claspignore
-
-# Package lock 
-package-lock.json
+# OS files
+.DS_Store
+Thumbs.db
