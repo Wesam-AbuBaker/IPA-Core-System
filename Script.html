@@ -359,6 +359,8 @@ document.addEventListener("click", function(e){
   const menu = document.getElementById("userMenu");
   const user = document.querySelector(".user");
 
+  if(!menu || !user) return;
+
   if(!user.contains(e.target)){
     menu.classList.remove("show");
   }
