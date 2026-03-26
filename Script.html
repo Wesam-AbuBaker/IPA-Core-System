@@ -326,15 +326,42 @@ async function renderDashboard(){
   hideLoader();
 
   app.innerHTML = `
-    <div class="dashboard fade">
-      <div class="dashboard-header">
-        <h2>لوحة التحكم</h2>
-        <p>تحليل حالة المختبرات</p>
+  <div class="dashboard fade">
+
+    <div class="dashboard-header">
+      <h2>لوحة التحكم</h2>
+      <p>نظرة عامة على حالة المختبرات</p>
+    </div>
+
+    <div class="dashboard-grid">
+      <div class="stat-card">
+        <i class="fa-solid fa-school"></i>
+        <div>
+          <div class="stat-title">عدد المدارس</div>
+          <div class="stat-value" id="statSchools"></div>
+        </div>
       </div>
 
+      <div class="stat-card">
+        <i class="fa-solid fa-desktop"></i>
+        <div>
+          <div class="stat-title">عدد المختبرات</div>
+          <div class="stat-value" id="statLabs"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mode-section">
+      <h3>حالة المختبرات</h3>
+      <div class="mode-grid" id="modeStats"></div>
+    </div>
+
+    <div style="margin-top:30px;">
       <canvas id="chart" height="120"></canvas>
     </div>
-  `;
+
+  </div>
+`;
 
   const counts = {};
 
