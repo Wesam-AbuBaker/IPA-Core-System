@@ -74,7 +74,8 @@ function navigate(view){
 /* ================= USER MENU ================= */
 function toggleUserMenu(e){
   e.stopPropagation();
-  userMenu.classList.toggle("show");
+  const menu = document.getElementById("userMenu");
+  menu.classList.toggle("show");
 }
 
 /* ================= SCHOOLS MENU ================= */
@@ -353,5 +354,14 @@ function init(){
 }
 
 init();
+
+document.addEventListener("click", function(e){
+  const menu = document.getElementById("userMenu");
+  const user = document.querySelector(".user");
+
+  if(!user.contains(e.target)){
+    menu.classList.remove("show");
+  }
+});
 
 </script>
