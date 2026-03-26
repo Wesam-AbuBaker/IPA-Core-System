@@ -77,11 +77,26 @@ function toggleUserMenu(e){
 
   const menu = document.getElementById("userMenu");
   const rect = e.currentTarget.getBoundingClientRect();
+  const isOpen = menu.classList.contains("show");
+
+  if(isOpen){
+    menu.classList.remove("show");
+    return;
+  }
+
+  menu.classList.add("show");
+
+  const menuWidth = menu.offsetWidth;
+  const viewportPadding = 10;
+  const desiredLeft = rect.right - menuWidth;
+  const clampedLeft = Math.max(
+    viewportPadding,
+    Math.min(desiredLeft, window.innerWidth - menuWidth - viewportPadding)
+  );
 
   menu.style.top = (rect.bottom + 8) + "px";
-  menu.style.right = (window.innerWidth - rect.right) + "px";
-
-  menu.classList.toggle("show");
+  menu.style.left = clampedLeft + "px";
+  menu.style.right = "auto";
 }
 
 /* ================= SCHOOLS MENU ================= */
