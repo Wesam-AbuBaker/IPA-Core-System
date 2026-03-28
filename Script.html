@@ -443,16 +443,27 @@ function init(){
 
   showLoader();
 
-  google.script.run.withSuccessHandler(labs=>{
+  google.script.run
+    .withSuccessHandler(labs=>{
 
-    state.labs = labs;
+      state.labs = labs;
 
-    hideLoader();
+      hideLoader();
 
-    renderSchools();
-    buildSchoolsMenu();
+      renderSchools();
+      buildSchoolsMenu();
+    })
+    .withFailureHandler(err=>{
+      hideLoader();
+      console.error(err);
 
-  }).getLabs();
+      document.getElementById("app").innerHTML = `
+        <div style="padding:30px;text-align:center;color:#e53935;">
+          حدث خطأ أو لا تملك صلاحية الدخول
+        </div>
+      `;
+    })
+    .getLabs();
 
   loadUser();
 }
