@@ -1,4 +1,4 @@
-<script>
+﻿<script>
 
 /* ================= STATE ================= */
 let state = {
@@ -7,6 +7,60 @@ let state = {
   currentSchool: null,
   currentLab: null
 };
+
+function getEmailFromURL(){
+  const direct = new URLSearchParams(window.location.search).get("email");
+  if (direct) return direct;
+
+  const hashIndex = window.location.href.indexOf("?");
+  if (hashIndex !== -1) {
+    const fallbackParams = new URLSearchParams(window.location.href.slice(hashIndex));
+    return fallbackParams.get("email") || "";
+  }
+
+  return "";
+}
+
+function normalizeEmail(email){
+  return String(email || "").trim().toLowerCase();
+}
+
+let currentEmail = normalizeEmail(
+  window.__INITIAL_EMAIL__ ||
+  sessionStorage.getItem("ipaCurrentEmail") ||
+  getEmailFromURL()
+);
+let currentAuthToken = window.__AUTH_TOKEN__ || sessionStorage.getItem("ipaAuthToken") || "";
+
+function resolveClientEmail(callback){
+  if (currentEmail) {
+    sessionStorage.setItem("ipaCurrentEmail", currentEmail);
+    if (currentAuthToken) {
+      sessionStorage.setItem("ipaAuthToken", currentAuthToken);
+    }
+    callback();
+    return;
+  }
+
+  if (!google.script.url || !google.script.url.getLocation) {
+    callback();
+    return;
+  }
+
+  google.script.url.getLocation(location => {
+    const locationEmail = location && location.parameter ? location.parameter.email : "";
+    currentEmail = normalizeEmail(currentEmail || locationEmail);
+    if (currentEmail) {
+      sessionStorage.setItem("ipaCurrentEmail", currentEmail);
+    }
+    if (currentAuthToken) {
+      sessionStorage.setItem("ipaAuthToken", currentAuthToken);
+    }
+    callback();
+  });
+}
+
+
 
 /* ================= COLORS ================= */
 const COLORS = {
@@ -40,20 +94,31 @@ function toast(msg){
 }
 
 /* ================= USER ================= */
-function loadUser(){
+function loadUser(callback){
   google.script.run.withSuccessHandler(u=>{
 
     state.user = u;
+    currentEmail = currentEmail || u.email || "";
+    if(currentEmail){
+      sessionStorage.setItem("ipaCurrentEmail", currentEmail);
+    }
+    if(currentAuthToken){
+      sessionStorage.setItem("ipaAuthToken", currentAuthToken);
+    }
 
     if(!u || !u.name){
       username.textContent = "غير معروف";
       avatar.textContent = "?";
+      userMenu.innerHTML = `
+        <div><b>غير معروف</b></div>
+        <div style="color:#777">${currentEmail || "-"}</div>
+      `;
+      if(typeof callback === "function") callback();
       return;
     }
 
     username.textContent = u.name;
     avatar.textContent = u.name.charAt(0);
-
     userMenu.innerHTML = `
       <div><b>${u.name}</b></div>
       <div style="color:#777">${u.email}</div>
@@ -62,7 +127,9 @@ function loadUser(){
       <div>💻 ${u.labs === "ALL" ? "كل المختبرات" : u.labs}</div>
     `;
 
-  }).getUserData();
+    if(typeof callback === "function") callback();
+
+  }).getUserData(currentEmail, currentAuthToken);
 }
 
 /* ================= NAV ================= */
@@ -212,7 +279,7 @@ async function renderLabs(){
     allSettings = await Promise.all(
       labs.map(l=>new Promise(res=>{
         google.script.run.withSuccessHandler(res)
-          .getLabSettings(l.sheetId);
+          .getLabSettings(l.sheetId, currentEmail, currentAuthToken)
       }))
     );
   }catch(e){
@@ -307,7 +374,7 @@ function renderSettings(lab){
       input.onchange = ()=>{
         google.script.run.withSuccessHandler(()=>{
           toast("تم التحديث ✔");
-        }).updateSetting(lab.sheetId, s.setting, input.value);
+        }).updateSetting(lab.sheetId, s.setting, input.value, currentEmail, currentAuthToken)
       };
 
       div.innerHTML = `<label>${s.setting}</label>`;
@@ -318,7 +385,7 @@ function renderSettings(lab){
 
     app.appendChild(container);
 
-  }).getLabSettings(lab.sheetId);
+  }).getLabSettings(lab.sheetId, currentEmail, currentAuthToken)
 }
 
 /* ================= DASHBOARD ================= */
@@ -331,7 +398,7 @@ async function renderDashboard(){
   const allSettings = await Promise.all(
     labs.map(l=>new Promise(res=>{
       google.script.run.withSuccessHandler(res)
-        .getLabSettings(l.sheetId);
+        .getLabSettings(l.sheetId, currentEmail, currentAuthToken)
     }))
   );
 
@@ -443,32 +510,32 @@ function init(){
 
   showLoader();
 
-  google.script.run
-    .withSuccessHandler(labs=>{
+  loadUser(()=>{
+    google.script.run
+      .withSuccessHandler(labs=>{
 
-      state.labs = labs;
+        state.labs = labs;
 
-      hideLoader();
+        hideLoader();
 
-      renderSchools();
-      buildSchoolsMenu();
-    })
-    .withFailureHandler(err=>{
-      hideLoader();
-      console.error(err);
+        renderSchools();
+        buildSchoolsMenu();
+      })
+      .withFailureHandler(err=>{
+        hideLoader();
+        console.error(err);
 
-      document.getElementById("app").innerHTML = `
-        <div style="padding:30px;text-align:center;color:#e53935;">
-          حدث خطأ أو لا تملك صلاحية الدخول
-        </div>
-      `;
-    })
-    .getLabs();
-
-  loadUser();
+        document.getElementById("app").innerHTML = `
+          <div style="padding:30px;text-align:center;color:#e53935;">
+            حدث خطأ أو لا تملك صلاحية الدخول
+          </div>
+        `;
+      })
+      .getLabs(currentEmail, currentAuthToken);
+  });
 }
 
-init();
+resolveClientEmail(init);
 
 document.addEventListener("click", function(e){
   const mobileMenu = document.querySelector(".menu");
@@ -487,3 +554,4 @@ document.addEventListener("click", function(e){
 });
 
 </script>
+

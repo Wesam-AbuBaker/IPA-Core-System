@@ -39,6 +39,11 @@
   <!-- Toast -->
   <div id="toast" class="toast"></div>
 
+  <script>
+    window.__INITIAL_EMAIL__ = <?!= JSON.stringify(initialEmail || '') ?>;
+    window.__AUTH_TOKEN__ = <?!= JSON.stringify(authToken || '') ?>;
+  </script>
+
   <!-- Scripts -->
   <?!= include('Script'); ?>
 

@@ -1,4 +1,4 @@
-/* ================= CONFIG ================= */
+﻿/* ================= CONFIG ================= */
 const SHEET_NAMES = {
   PERMISSIONS: 'PERMISSIONS',
   LABS: 'LABS'
@@ -7,17 +7,24 @@ const SHEET_NAMES = {
 const RANGE_SETTINGS_START_ROW = 2;
 const RANGE_SETTINGS_END_ROW = 50;
 
+function testEmail(e){
+  return JSON.stringify(e);
+}
+
 /* ================= ENTRY ================= */
 function doGet(e) {
-  const ctx = resolveRequestContext_(e);
+  const email = resolveEmail_(e);
+  const user = getUserDataByEmail_(email);
 
-  if (!ctx.authorized) {
+  if (!user.authorized) {
     const t = HtmlService.createTemplateFromFile('Unauthorized');
-    t.email = ctx.email || 'غير معروف';
+    t.email = email || 'غير معروف';
     return t.evaluate().setTitle('غير مصرح');
   }
 
   const t = HtmlService.createTemplateFromFile('Index');
+  t.initialEmail = user.email || email || '';
+  t.authToken = createAuthSession_(user);
   return t.evaluate().setTitle('IPA Dashboard');
 }
 
@@ -41,17 +48,102 @@ function resolveRequestContext_(e) {
 function resolveEmail_(e) {
   let email = '';
 
-  try {
-    email = Session.getActiveUser().getEmail() || '';
-  } catch (err) {
-    email = '';
+  if (e && e.parameter && e.parameter.email) {
+    email = String(e.parameter.email).trim().toLowerCase();
   }
 
-  if (!email && e && e.parameter && e.parameter.email) {
-    email = String(e.parameter.email).trim();
+  if (!email && e && e.parameters && e.parameters.email && e.parameters.email.length) {
+    email = String(e.parameters.email[0]).trim().toLowerCase();
+  }
+
+  if (!email && e && e.queryString) {
+    const match = String(e.queryString).match(/(?:^|&)email=([^&]+)/);
+    if (match && match[1]) {
+      email = decodeURIComponent(match[1]).trim().toLowerCase();
+    }
+  }
+
+  // fallback for domain users only
+  if (!email) {
+    try {
+      email = Session.getActiveUser().getEmail().toLowerCase();
+    } catch (err) {
+      email = '';
+    }
   }
 
   return email;
+}
+
+function resolveAuthEmail_(email) {
+  const passedEmail = String(email || '').trim().toLowerCase();
+  return passedEmail || resolveEmail_();
+}
+
+function createAuthSession_(user) {
+  const token = Utilities.getUuid();
+  CacheService.getScriptCache().put('auth:' + token, JSON.stringify(user), 21600);
+  return token;
+}
+
+function getAuthorizedUser_(email, authToken) {
+  const token = String(authToken || '').trim();
+
+  if (token) {
+    const cachedUser = CacheService.getScriptCache().get('auth:' + token);
+    if (cachedUser) {
+      const user = JSON.parse(cachedUser);
+      if (user && user.authorized) {
+        return user;
+      }
+    }
+  }
+
+  const authEmail = resolveAuthEmail_(email);
+  const user = getUserDataByEmail_(authEmail);
+  if (!user.authorized) {
+    throw new Error('غير مصرح');
+  }
+  return user;
+}
+
+function normalizeText_(value) {
+  return String(value || '')
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .replace(/\u00A0/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function normalizeComparable_(value) {
+  return normalizeText_(value).toLowerCase();
+}
+
+function isAllValue_(value) {
+  return normalizeComparable_(value) === 'all';
+}
+
+function isNoneValue_(value) {
+  const normalized = normalizeComparable_(value);
+  return normalized === '' || normalized === 'none' || normalized === '-';
+}
+
+function parseAllowedValues_(value) {
+  return normalizeText_(value)
+    .split(/[\n\r,،;]+/)
+    .map(x => x.trim())
+    .filter(Boolean);
+}
+
+function matchesAllowedLab_(labName, allowedValues) {
+  const normalizedLabName = normalizeComparable_(labName);
+
+  return allowedValues.some(value => {
+    const normalizedValue = normalizeComparable_(value);
+    if (!normalizedValue) return false;
+
+    return normalizedLabName === normalizedValue || normalizedLabName.includes(normalizedValue);
+  });
 }
 
 function getUserDataByEmail_(email) {
@@ -74,19 +166,19 @@ function getUserDataByEmail_(email) {
 
   data.shift(); // remove headers
 
-  const normalizedEmail = String(email).trim().toLowerCase();
+  const normalizedEmail = normalizeComparable_(email);
 
   for (const row of data) {
-    const rowEmail = String(row[0] || '').trim().toLowerCase();
+    const rowEmail = normalizeComparable_(row[0]);
     if (!rowEmail) continue;
 
     if (rowEmail === normalizedEmail) {
       return {
-        email: row[0] || '',
-        name: row[1] || '',
-        school: row[2] || 'NONE',
-        labs: row[3] || 'NONE',
-        shareLink: row[4] || '',
+        email: normalizeText_(row[0]),
+        name: normalizeText_(row[1]),
+        school: normalizeText_(row[2]) || 'NONE',
+        labs: normalizeText_(row[3]) || 'NONE',
+        shareLink: normalizeText_(row[4]),
         authorized: true
       };
     }
@@ -108,89 +200,67 @@ function getCurrentUser_() {
 }
 
 /* ================= PUBLIC API ================= */
-function getUserData() {
-  const email = resolveEmail_();
-  return getUserDataByEmail_(email);
+function getUserData(email, authToken) {
+  return getAuthorizedUser_(email, authToken);
 }
 
-function getLabs() {
-  const user = getCurrentUser_();
+function getLabs(email, authToken) {
+  const user = getAuthorizedUser_(email, authToken);
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(SHEET_NAMES.LABS);
-  if (!sheet) {
-    throw new Error('LABS sheet not found');
-  }
 
   const data = sheet.getDataRange().getValues();
-  if (data.length < 2) return [];
-
   data.shift();
 
   let labs = data
-    .filter(row => row[0] && row[1] && row[2])
-    .map(row => ({
-      labName: String(row[0]).trim(),
-      school: String(row[1]).trim(),
-      sheetId: String(row[2]).trim()
+    .filter(r => r[0])
+    .map(r => ({
+      labName: normalizeText_(r[0]),
+      school: normalizeText_(r[1]),
+      sheetId: normalizeText_(r[2])
     }));
 
-  if (user.school !== 'ALL') {
-    labs = labs.filter(lab => lab.school === user.school);
+  if (!isAllValue_(user.school) && !isNoneValue_(user.school)) {
+    const allowedSchools = parseAllowedValues_(user.school).map(normalizeComparable_);
+    labs = labs.filter(l => allowedSchools.includes(normalizeComparable_(l.school)));
   }
 
-  if (user.labs !== 'ALL') {
-    const allowedLabs = String(user.labs)
-      .split(',')
-      .map(x => x.trim())
-      .filter(Boolean);
-
-    labs = labs.filter(lab => allowedLabs.includes(lab.labName));
+  if (!isAllValue_(user.labs) && !isNoneValue_(user.labs)) {
+    const allowed = parseAllowedValues_(user.labs);
+    labs = labs.filter(l => matchesAllowedLab_(l.labName, allowed));
   }
 
   return labs;
 }
 
-function getLabSettings(sheetId) {
-  const labs = getLabs();
-  const allowed = labs.find(l => String(l.sheetId) === String(sheetId));
-  if (!allowed) {
-    throw new Error('غير مصرح');
-  }
+function getLabSettings(sheetId, email, authToken) {
+  const user = getAuthorizedUser_(email, authToken);
+  const labs = getLabs(user.email, authToken);
+
+  const allowed = labs.find(l => l.sheetId === sheetId);
+  if (!allowed) throw new Error('غير مصرح');
 
   const ss = SpreadsheetApp.openById(sheetId);
   const sheet = ss.getSheets()[0];
-  if (!sheet) {
-    throw new Error('Lab sheet not found');
-  }
 
-  const range = sheet.getRange(RANGE_SETTINGS_START_ROW, 1, RANGE_SETTINGS_END_ROW - RANGE_SETTINGS_START_ROW + 1, 2);
-  const values = range.getValues();
-  const validations = range.getDataValidations();
+  const values = sheet.getRange(2,1,49,2).getValues();
+  const validations = sheet.getRange(2,1,49,2).getDataValidations();
 
   const result = [];
 
-  for (let i = 0; i < values.length; i++) {
-    const settingName = values[i][0];
-    const settingValue = values[i][1];
-
-    if (!settingName) continue;
+  for (let i=0;i<values.length;i++){
+    if(!values[i][0]) continue;
 
     let options = [];
     const rule = validations[i][1];
-
-    if (rule) {
-      const type = rule.getCriteriaType();
-      const args = rule.getCriteriaValues();
-
-      if (type === SpreadsheetApp.DataValidationCriteria.VALUE_IN_LIST) {
-        options = (args[0] || []).map(x => String(x));
-      }
+    if(rule){
+      options = rule.getCriteriaValues()[0] || [];
     }
 
     result.push({
-      setting: String(settingName).trim(),
-      value: settingValue === null || settingValue === undefined ? '' : String(settingValue),
+      setting: values[i][0],
+      value: values[i][1],
       options: options
     });
   }
@@ -198,24 +268,21 @@ function getLabSettings(sheetId) {
   return result;
 }
 
-function updateSetting(sheetId, name, value) {
-  const labs = getLabs();
-  const allowed = labs.find(l => String(l.sheetId) === String(sheetId));
-  if (!allowed) {
-    throw new Error('غير مصرح');
-  }
+function updateSetting(sheetId, name, value, email, authToken) {
+  const user = getAuthorizedUser_(email, authToken);
+  const labs = getLabs(user.email, authToken);
+
+  const allowed = labs.find(l => l.sheetId === sheetId);
+  if (!allowed) throw new Error('غير مصرح');
 
   const ss = SpreadsheetApp.openById(sheetId);
   const sheet = ss.getSheets()[0];
-  if (!sheet) {
-    throw new Error('Lab sheet not found');
-  }
 
-  const data = sheet.getRange(RANGE_SETTINGS_START_ROW, 1, RANGE_SETTINGS_END_ROW - RANGE_SETTINGS_START_ROW + 1, 2).getValues();
+  const data = sheet.getRange(2,1,49,2).getValues();
 
-  for (let i = 0; i < data.length; i++) {
-    if (String(data[i][0]).trim() === String(name).trim()) {
-      sheet.getRange(RANGE_SETTINGS_START_ROW + i, 2).setValue(value);
+  for (let i=0;i<data.length;i++){
+    if(data[i][0] === name){
+      sheet.getRange(2+i,2).setValue(value);
       return true;
     }
   }
