@@ -85,6 +85,12 @@ body{
   color:#6f42c1;
 }
 
+.hamburger{
+  display:none;
+  font-size:22px;
+  cursor:pointer;
+}
+
 /* ===== DROPDOWN ===== */
 .dropdown-parent{
   position:relative;
@@ -518,6 +524,23 @@ button{
 
   .menu{
     display:none;
+    position:absolute;
+    top:60px;
+    right:10px;
+    background:white;
+    border-radius:12px;
+    padding:10px;
+    flex-direction:column;
+    gap:10px;
+    box-shadow:0 8px 20px rgba(0,0,0,0.1);
+  }
+
+  .menu.show{
+    display:flex;
+  }
+
+  .hamburger{
+    display:block;
   }
 
   .footer-content{

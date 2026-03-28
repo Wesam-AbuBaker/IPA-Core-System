@@ -71,6 +71,18 @@ function navigate(view){
   if(view === "dashboard") renderDashboard();
 }
 
+function toggleMobileMenu(e){
+  e.stopPropagation();
+
+  const menu = document.querySelector(".menu");
+
+  if(menu.classList.contains("show")){
+    menu.classList.remove("show");
+  } else {
+    menu.classList.add("show");
+  }
+}
+
 /* ================= USER MENU ================= */
 function toggleUserMenu(e){
   e.stopPropagation();
@@ -448,8 +460,13 @@ function init(){
 init();
 
 document.addEventListener("click", function(e){
+  const mobileMenu = document.querySelector(".menu");
   const menu = document.getElementById("userMenu");
   const user = document.querySelector(".user");
+
+  if(mobileMenu && !mobileMenu.contains(e.target) && !e.target.closest(".hamburger")){
+    mobileMenu.classList.remove("show");
+  }
 
   if(!menu || !user) return;
 
