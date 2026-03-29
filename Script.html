@@ -1,125 +1,164 @@
 ﻿<script>
 
-/* ================= STATE ================= */
-let state = {
-  user: null,
-  labs: [],
-  currentSchool: null,
-  currentLab: null
-};
-
-function getEmailFromURL(){
-  const direct = new URLSearchParams(window.location.search).get("email");
-  if (direct) return direct;
-
-  const hashIndex = window.location.href.indexOf("?");
-  if (hashIndex !== -1) {
-    const fallbackParams = new URLSearchParams(window.location.href.slice(hashIndex));
-    return fallbackParams.get("email") || "";
+  function saveState() {
+    sessionStorage.setItem("ipaState", JSON.stringify({
+      school: state.currentSchool,
+      lab: state.currentLab?.sheetId
+    }));
   }
 
-  return "";
-}
+  function restoreState() {
+    const saved = JSON.parse(sessionStorage.getItem("ipaState") || "{}");
 
-function normalizeEmail(email){
-  return String(email || "").trim().toLowerCase();
-}
-
-let currentEmail = normalizeEmail(
-  window.__INITIAL_EMAIL__ ||
-  sessionStorage.getItem("ipaCurrentEmail") ||
-  getEmailFromURL()
-);
-let currentAuthToken = window.__AUTH_TOKEN__ || sessionStorage.getItem("ipaAuthToken") || "";
-
-function resolveClientEmail(callback){
-  if (currentEmail) {
-    sessionStorage.setItem("ipaCurrentEmail", currentEmail);
-    if (currentAuthToken) {
-      sessionStorage.setItem("ipaAuthToken", currentAuthToken);
+    if (saved.lab) {
+      const lab = state.labs.find(l => l.sheetId === saved.lab);
+      if (lab) {
+        state.currentLab = lab;
+        state.currentSchool = lab.school;
+        renderSettings(lab);
+        return true;
+      }
     }
-    callback();
-    return;
+
+    if (saved.school) {
+      state.currentSchool = saved.school;
+      renderLabs();
+      return true;
+    }
+
+    return false;
   }
 
-  if (!google.script.url || !google.script.url.getLocation) {
-    callback();
-    return;
+  /* ================= STATE ================= */
+  let state = {
+    user: null,
+    labs: [],
+    currentSchool: null,
+    currentLab: null
+  };
+
+  function getEmailFromURL() {
+    const direct = new URLSearchParams(window.location.search).get("email");
+    if (direct) return direct;
+
+    const hashIndex = window.location.href.indexOf("?");
+    if (hashIndex !== -1) {
+      const fallbackParams = new URLSearchParams(window.location.href.slice(hashIndex));
+      return fallbackParams.get("email") || "";
+    }
+
+    return "";
   }
 
-  google.script.url.getLocation(location => {
-    const locationEmail = location && location.parameter ? location.parameter.email : "";
-    currentEmail = normalizeEmail(currentEmail || locationEmail);
+  function normalizeEmail(email) {
+    return String(email || "").trim().toLowerCase();
+  }
+
+  let currentEmail = normalizeEmail(
+    window.__INITIAL_EMAIL__ ||
+    sessionStorage.getItem("ipaCurrentEmail") ||
+    getEmailFromURL()
+  );
+  let currentAuthToken = window.__AUTH_TOKEN__ || sessionStorage.getItem("ipaAuthToken") || "";
+
+  function resolveClientEmail(callback) {
     if (currentEmail) {
       sessionStorage.setItem("ipaCurrentEmail", currentEmail);
-    }
-    if (currentAuthToken) {
-      sessionStorage.setItem("ipaAuthToken", currentAuthToken);
-    }
-    callback();
-  });
-}
-
-
-
-/* ================= COLORS ================= */
-const COLORS = {
-  lock:"#e53935",
-  unlock:"#1e88e5",
-  open:"#43a047",
-  exam:"#fb8c00",
-  hellocode:"#8e24aa",
-  none:"#9e9e9e",
-  all:"#1e88e5",
-  style:"#fbc02d"
-};
-
-/* ================= ELEMENTS ================= */
-const app = document.getElementById("app");
-const loader = document.getElementById("loader");
-const username = document.getElementById("username");
-const avatar = document.getElementById("avatar");
-const userMenu = document.getElementById("userMenu");
-const schoolsMenu = document.getElementById("schoolsMenu");
-const toastEl = document.getElementById("toast");
-
-/* ================= UI ================= */
-function showLoader(){ loader.classList.remove("hidden"); }
-function hideLoader(){ loader.classList.add("hidden"); }
-
-function toast(msg){
-  toastEl.textContent = msg;
-  toastEl.style.display = "block";
-  setTimeout(()=>toastEl.style.display="none",2000);
-}
-
-/* ================= USER ================= */
-function loadUser(callback){
-  google.script.run.withSuccessHandler(u=>{
-
-    state.user = u;
-    currentEmail = currentEmail || u.email || "";
-    if(currentEmail){
-      sessionStorage.setItem("ipaCurrentEmail", currentEmail);
-    }
-    if(currentAuthToken){
-      sessionStorage.setItem("ipaAuthToken", currentAuthToken);
-    }
-
-    if(!u || !u.name){
-      username.textContent = "غير معروف";
-      avatar.textContent = "?";
-      userMenu.innerHTML = `
-        <div><b>غير معروف</b></div>
-        <div style="color:#777">${currentEmail || "-"}</div>
-      `;
-      if(typeof callback === "function") callback();
+      if (currentAuthToken) {
+        sessionStorage.setItem("ipaAuthToken", currentAuthToken);
+      }
+      callback();
       return;
     }
 
-    username.textContent = u.name;
-    avatar.textContent = u.name.charAt(0);
-    userMenu.innerHTML = `
+    if (!google.script.url || !google.script.url.getLocation) {
+      callback();
+      return;
+    }
+
+    google.script.url.getLocation(location => {
+      const locationEmail = location && location.parameter ? location.parameter.email : "";
+      currentEmail = normalizeEmail(currentEmail || locationEmail);
+      if (currentEmail) {
+        sessionStorage.setItem("ipaCurrentEmail", currentEmail);
+      }
+      if (currentAuthToken) {
+        sessionStorage.setItem("ipaAuthToken", currentAuthToken);
+      }
+      callback();
+    });
+  }
+
+
+
+  /* ================= COLORS ================= */
+  const COLORS = {
+    lock: "#e53935",
+    unlock: "#1e88e5",
+    open: "#43a047",
+    exam: "#fb8c00",
+    hellocode: "#8e24aa",
+    none: "#9e9e9e",
+    all: "#1e88e5",
+    style: "#fbc02d"
+  };
+
+  /* ================= ELEMENTS ================= */
+  const app = document.getElementById("app");
+  const loader = document.getElementById("loader");
+  const username = document.getElementById("username");
+  const avatar = document.getElementById("avatar");
+  const userMenu = document.getElementById("userMenu");
+  const schoolsMenu = document.getElementById("schoolsMenu");
+  const toastEl = document.getElementById("toast");
+
+  /* ================= UI ================= */
+  let loaderTimeout;
+
+  function showLoader() {
+    loaderTimeout = setTimeout(() => {
+      loader.classList.remove("hidden");
+    }, 200); // لا يظهر إلا إذا فعلاً في تأخير
+  }
+
+  function hideLoader() {
+    clearTimeout(loaderTimeout);
+    loader.classList.add("hidden");
+  }
+
+  function toast(msg) {
+    toastEl.textContent = msg;
+    toastEl.style.display = "block";
+    setTimeout(() => toastEl.style.display = "none", 2000);
+  }
+
+  /* ================= USER ================= */
+  function loadUser(callback) {
+    google.script.run.withSuccessHandler(u => {
+
+      state.user = u;
+      currentEmail = currentEmail || u.email || "";
+      if (currentEmail) {
+        sessionStorage.setItem("ipaCurrentEmail", currentEmail);
+      }
+      if (currentAuthToken) {
+        sessionStorage.setItem("ipaAuthToken", currentAuthToken);
+      }
+
+      if (!u || !u.name) {
+        username.textContent = "غير معروف";
+        avatar.textContent = "?";
+        userMenu.innerHTML = `
+        <div><b>غير معروف</b></div>
+        <div style="color:#777">${currentEmail || "-"}</div>
+      `;
+        if (typeof callback === "function") callback();
+        return;
+      }
+
+      username.textContent = u.name;
+      avatar.textContent = u.name.charAt(0);
+      userMenu.innerHTML = `
       <div><b>${u.name}</b></div>
       <div style="color:#777">${u.email}</div>
       <hr>
@@ -127,212 +166,213 @@ function loadUser(callback){
       <div>💻 ${u.labs === "ALL" ? "كل المختبرات" : u.labs}</div>
     `;
 
-    if(typeof callback === "function") callback();
+      if (typeof callback === "function") callback();
 
-  }).getUserData(currentEmail, currentAuthToken);
-}
+    }).getUserData(currentEmail, currentAuthToken);
+  }
 
-/* ================= NAV ================= */
-function navigate(view){
-  if(view === "schools") renderSchools();
-  if(view === "dashboard") renderDashboard();
-}
+  /* ================= NAV ================= */
+  function navigate(view) {
+    if (view === "schools") renderSchools();
+    if (view === "dashboard") renderDashboard();
+  }
 
-function toggleMobileMenu(e){
-  e.stopPropagation();
+  function toggleMobileMenu(e) {
+    e.stopPropagation();
 
-  const menu = document.querySelector(".menu");
+    const menu = document.querySelector(".menu");
 
-  if(menu.classList.contains("show")){
-    menu.classList.remove("show");
-  } else {
+    if (menu.classList.contains("show")) {
+      menu.classList.remove("show");
+    } else {
+      menu.classList.add("show");
+    }
+  }
+
+  /* ================= USER MENU ================= */
+  function toggleUserMenu(e) {
+    e.stopPropagation();
+
+    const menu = document.getElementById("userMenu");
+    const rect = e.currentTarget.getBoundingClientRect();
+    const isOpen = menu.classList.contains("show");
+
+    if (isOpen) {
+      menu.classList.remove("show");
+      return;
+    }
+
     menu.classList.add("show");
-  }
-}
 
-/* ================= USER MENU ================= */
-function toggleUserMenu(e){
-  e.stopPropagation();
+    const menuWidth = menu.offsetWidth;
+    const viewportPadding = 10;
+    const desiredLeft = rect.right - menuWidth;
+    const clampedLeft = Math.max(
+      viewportPadding,
+      Math.min(desiredLeft, window.innerWidth - menuWidth - viewportPadding)
+    );
 
-  const menu = document.getElementById("userMenu");
-  const rect = e.currentTarget.getBoundingClientRect();
-  const isOpen = menu.classList.contains("show");
-
-  if(isOpen){
-    menu.classList.remove("show");
-    return;
+    menu.style.top = (rect.bottom + 8) + "px";
+    menu.style.left = clampedLeft + "px";
+    menu.style.right = "auto";
   }
 
-  menu.classList.add("show");
+  /* ================= SCHOOLS MENU ================= */
+  function toggleSchoolsMenu(e) {
+    e.stopPropagation();
+    schoolsMenu.classList.toggle("show");
+  }
 
-  const menuWidth = menu.offsetWidth;
-  const viewportPadding = 10;
-  const desiredLeft = rect.right - menuWidth;
-  const clampedLeft = Math.max(
-    viewportPadding,
-    Math.min(desiredLeft, window.innerWidth - menuWidth - viewportPadding)
-  );
+  function buildSchoolsMenu() {
 
-  menu.style.top = (rect.bottom + 8) + "px";
-  menu.style.left = clampedLeft + "px";
-  menu.style.right = "auto";
-}
+    let html = "";
 
-/* ================= SCHOOLS MENU ================= */
-function toggleSchoolsMenu(e){
-  e.stopPropagation();
-  schoolsMenu.classList.toggle("show");
-}
+    const grouped = {};
 
-function buildSchoolsMenu(){
+    state.labs.forEach(l => {
+      if (!grouped[l.school]) grouped[l.school] = [];
+      grouped[l.school].push(l);
+    });
 
-  let html = "";
+    for (let school in grouped) {
 
-  const grouped = {};
+      html += `<div class="school-group">`;
+      html += `<div class="school-title">${school}</div>`;
 
-  state.labs.forEach(l=>{
-    if(!grouped[l.school]) grouped[l.school] = [];
-    grouped[l.school].push(l);
-  });
-
-  for(let school in grouped){
-
-    html += `<div class="school-group">`;
-    html += `<div class="school-title">${school}</div>`;
-
-    grouped[school].forEach(lab=>{
-      html += `
+      grouped[school].forEach(lab => {
+        html += `
         <div class="lab-item" onclick="openLab('${lab.sheetId}')">
           ${lab.labName}
         </div>
       `;
-    });
+      });
 
-    html += `</div>`;
+      html += `</div>`;
+    }
+
+    schoolsMenu.innerHTML = html;
   }
 
-  schoolsMenu.innerHTML = html;
-}
+  /* ================= OPEN LAB ================= */
+  function openLab(id) {
+    saveState();
+    const lab = state.labs.find(l => l.sheetId === id);
 
-/* ================= OPEN LAB ================= */
-function openLab(id){
-  const lab = state.labs.find(l=>l.sheetId === id);
+    state.currentLab = lab;
+    state.currentSchool = lab.school;
 
-  state.currentLab = lab;
-  state.currentSchool = lab.school;
+    renderSettings(lab);
+    schoolsMenu.classList.remove("active");
+  }
 
-  renderSettings(lab);
-  schoolsMenu.classList.remove("active");
-}
+  /* ================= SCHOOLS ================= */
+  function renderSchools() {
 
-/* ================= SCHOOLS ================= */
-function renderSchools(){
+    app.innerHTML = "";
+    showLoader();
 
-  app.innerHTML = "";
-  showLoader();
+    setTimeout(() => {
 
-  setTimeout(()=>{
+      hideLoader();
 
-    hideLoader();
+      const grid = document.createElement("div");
+      grid.className = "grid fade";
 
-    const grid = document.createElement("div");
-    grid.className = "grid fade";
+      const schools = [...new Set(state.labs.map(l => l.school))];
 
-    const schools = [...new Set(state.labs.map(l=>l.school))];
+      schools.forEach(s => {
 
-    schools.forEach(s=>{
+        const count = state.labs.filter(l => l.school === s).length;
 
-      const count = state.labs.filter(l=>l.school === s).length;
+        const card = document.createElement("div");
+        card.className = "card";
 
-      const card = document.createElement("div");
-      card.className = "card";
-
-      card.innerHTML = `
+        card.innerHTML = `
         <div class="card-icon"><i class="fa-solid fa-school"></i></div>
         <div class="card-title">${s}</div>
         <div class="card-sub">عدد المختبرات: ${count}</div>
       `;
 
-      card.onclick = ()=>{
-        state.currentSchool = s;
-        renderLabs();
-      };
+        card.onclick = () => {
+          state.currentSchool = s;
+          renderLabs();
+        };
 
-      grid.appendChild(card);
-    });
+        grid.appendChild(card);
+      });
 
-    app.appendChild(grid);
+      app.appendChild(grid);
 
-  },150);
-}
-
-/* ================= LABS ================= */
-async function renderLabs(){
-
-  showLoader();
-
-  const labs = state.labs.filter(l=>l.school === state.currentSchool);
-
-  let allSettings = [];
-
-  try{
-    allSettings = await Promise.all(
-      labs.map(l=>new Promise(res=>{
-        google.script.run.withSuccessHandler(res)
-          .getLabSettings(l.sheetId, currentEmail, currentAuthToken)
-      }))
-    );
-  }catch(e){
-    console.error(e);
+    }, 150);
   }
 
-  hideLoader();
+  /* ================= LABS ================= */
+  async function renderLabs() {
+    saveState();
+    showLoader();
 
-  app.innerHTML = `
+    const labs = state.labs.filter(l => l.school === state.currentSchool);
+
+    let allSettings = [];
+
+    try {
+      allSettings = await Promise.all(
+        labs.map(l => new Promise(res => {
+          google.script.run.withSuccessHandler(res)
+            .getLabSettings(l.sheetId, currentEmail, currentAuthToken)
+        }))
+      );
+    } catch (e) {
+      console.error(e);
+    }
+
+    hideLoader();
+
+    app.innerHTML = `
     <div class="breadcrumb">
       <span onclick="navigate('schools')">الرئيسية</span>
       <span>${state.currentSchool}</span>
     </div>
   `;
 
-  const grid = document.createElement("div");
-  grid.className = "grid fade";
+    const grid = document.createElement("div");
+    grid.className = "grid fade";
 
-  labs.forEach((lab,i)=>{
+    labs.forEach((lab, i) => {
 
-    const settings = allSettings[i] || [];
-    const mode = settings.find(s=>s.setting==="Mode")?.value || "none";
+      const settings = allSettings[i] || [];
+      const mode = settings.find(s => s.setting === "Mode")?.value || "none";
 
-    const card = document.createElement("div");
-    card.className = "card";
+      const card = document.createElement("div");
+      card.className = "card";
 
-    card.innerHTML = `
+      card.innerHTML = `
       <div class="card-icon"><i class="fa-solid fa-desktop"></i></div>
       <div class="card-title">${lab.labName}</div>
       <div class="status" style="background:${COLORS[mode]}">${mode}</div>
     `;
 
-    card.onclick = ()=>{
-      state.currentLab = lab;
-      renderSettings(lab);
-    };
+      card.onclick = () => {
+        state.currentLab = lab;
+        renderSettings(lab);
+      };
 
-    grid.appendChild(card);
-  });
+      grid.appendChild(card);
+    });
 
-  app.appendChild(grid);
-}
+    app.appendChild(grid);
+  }
 
-/* ================= SETTINGS ================= */
-function renderSettings(lab){
+  /* ================= SETTINGS ================= */
+  function renderSettings(lab) {
 
-  showLoader();
+    showLoader();
 
-  google.script.run.withSuccessHandler(settings=>{
+    google.script.run.withSuccessHandler(settings => {
 
-    hideLoader();
+      hideLoader();
 
-    app.innerHTML = `
+      app.innerHTML = `
       <div class="breadcrumb">
         <span onclick="navigate('schools')">الرئيسية</span>
         <span onclick="renderLabs()">${state.currentSchool}</span>
@@ -340,71 +380,94 @@ function renderSettings(lab){
       </div>
     `;
 
-    const container = document.createElement("div");
-    container.className = "settings fade";
+      const container = document.createElement("div");
+      container.className = "settings fade";
 
-    settings.forEach(s=>{
+      settings.forEach(s => {
 
-      const div = document.createElement("div");
-      div.className = "setting";
+        const div = document.createElement("div");
+        div.className = "setting";
 
-      let input;
+        let input;
 
-      if(s.options.length){
-        input = document.createElement("select");
+        if (s.options.length) {
+          input = document.createElement("select");
 
-        s.options.forEach(o=>{
-          const opt = document.createElement("option");
-          opt.value = o;
-          opt.textContent = o;
-          if(o === s.value) opt.selected = true;
-          input.appendChild(opt);
-        });
+          s.options.forEach(o => {
+            const opt = document.createElement("option");
+            opt.value = o;
+            opt.textContent = o;
+            if (o === s.value) opt.selected = true;
+            input.appendChild(opt);
+          });
 
-      }else{
-        input = document.createElement("input");
-        input.value = s.value;
-      }
+        } else {
+          input = document.createElement("input");
+          input.value = s.value;
+        }
 
-      if(COLORS[s.value]){
-        div.style.borderLeft = "6px solid " + COLORS[s.value];
-        div.style.background = COLORS[s.value] + "15";
-      }
+        if (COLORS[s.value]) {
+          div.style.borderLeft = "6px solid " + COLORS[s.value];
+          div.style.background = COLORS[s.value] + "15";
+        }
 
-      input.onchange = ()=>{
-        google.script.run.withSuccessHandler(()=>{
-          toast("تم التحديث ✔");
-        }).updateSetting(lab.sheetId, s.setting, input.value, currentEmail, currentAuthToken)
-      };
+        input.onchange = () => {
 
-      div.innerHTML = `<label>${s.setting}</label>`;
-      div.appendChild(input);
+          const newValue = input.value;
 
-      container.appendChild(div);
-    });
+          // 🔥 تحديث فوري UI
+          if (COLORS[newValue]) {
+            div.style.borderLeft = "6px solid " + COLORS[newValue];
+            div.style.background = COLORS[newValue] + "15";
+          }
 
-    app.appendChild(container);
+          // 🔄 إرسال للسيرفر
+          google.script.run
+            .withSuccessHandler(() => {
+              toast("تم التحديث ✔");
+            })
+            .withFailureHandler(() => {
+              toast("فشل التحديث ❌");
 
-  }).getLabSettings(lab.sheetId, currentEmail, currentAuthToken)
-}
+              // rollback (اختياري)
+              input.value = s.value;
+            })
+            .updateSetting(lab.sheetId, s.setting, newValue, currentEmail, currentAuthToken);
 
-/* ================= DASHBOARD ================= */
-async function renderDashboard(){
+          // تحديث القيمة محلياً
+          s.value = newValue;
+        };
 
-  showLoader();
+        div.innerHTML = `<label>${s.setting}</label>`;
+        div.appendChild(input);
 
-  const labs = state.labs;
+        container.appendChild(div);
+      });
 
-  const allSettings = await Promise.all(
-    labs.map(l=>new Promise(res=>{
-      google.script.run.withSuccessHandler(res)
-        .getLabSettings(l.sheetId, currentEmail, currentAuthToken)
-    }))
-  );
+      app.appendChild(container);
 
-  hideLoader();
+    }).getLabSettings(lab.sheetId, currentEmail, currentAuthToken)
+  }
 
-  app.innerHTML = `
+  /* ================= DASHBOARD ================= */
+  async function renderDashboard() {
+
+    showLoader();
+
+    const labs = state.labs;
+
+    const allSettings = await Promise.all(
+      labs.map(l => new Promise(res => {
+        google.script.run
+          .withSuccessHandler(res)
+          .withFailureHandler(() => res([])) // 🔥 يمنع التعليق
+          .getLabSettings(l.sheetId, currentEmail, currentAuthToken);
+      }))
+    );
+
+    hideLoader();
+
+    app.innerHTML = `
   <div class="dashboard fade">
 
     <div class="dashboard-header">
@@ -444,114 +507,115 @@ async function renderDashboard(){
   </div>
 `;
 
-  const counts = {};
+    const counts = {};
 
-  allSettings.forEach(settings=>{
-    const mode = settings.find(s=>s.setting==="Mode")?.value || "none";
-    counts[mode] = (counts[mode]||0)+1;
-  });
+    allSettings.forEach(settings => {
+      const mode = settings.find(s => s.setting === "Mode")?.value || "none";
+      counts[mode] = (counts[mode] || 0) + 1;
+    });
 
-  // ===== STATS =====
-  document.getElementById("statSchools").textContent =
-    new Set(state.labs.map(l=>l.school)).size;
+    // ===== STATS =====
+    document.getElementById("statSchools").textContent =
+      new Set(state.labs.map(l => l.school)).size;
 
-  document.getElementById("statLabs").textContent =
-    state.labs.length;
+    document.getElementById("statLabs").textContent =
+      state.labs.length;
 
-  // ===== MODE CARDS =====
-  let html = "";
+    // ===== MODE CARDS =====
+    let html = "";
 
-  for(let mode in counts){
-    html += `
+    for (let mode in counts) {
+      html += `
       <div class="mode-card" style="background:${COLORS[mode] || "#999"}">
         ${mode} : ${counts[mode]}
       </div>
     `;
-  }
-
-  document.getElementById("modeStats").innerHTML = html;
-
-  const labels = Object.keys(counts);
-  const data = Object.values(counts);
-
-  setTimeout(() => {
-
-    const canvas = document.getElementById("chart");
-    if(!canvas){
-      console.error("Chart canvas not found");
-      return;
     }
 
-    const ctx = canvas.getContext("2d");
+    document.getElementById("modeStats").innerHTML = html;
 
-    new Chart(ctx,{
-      type:"bar",
-      data:{
-        labels:labels,
-        datasets:[{
-          label:"عدد المختبرات",
-          data:data,
-          backgroundColor: labels.map(l => COLORS[l] || "#999"),
-          borderRadius:6
-        }]
-      },
-      options:{
-        responsive:true,
-        plugins:{
-          legend:{display:false}
-        }
+    const labels = Object.keys(counts);
+    const data = Object.values(counts);
+
+    setTimeout(() => {
+
+      const canvas = document.getElementById("chart");
+      if (!canvas) {
+        console.error("Chart canvas not found");
+        return;
       }
-    });
-  }, 50);
-}
 
-/* ================= INIT ================= */
-function init(){
+      const ctx = canvas.getContext("2d");
 
-  showLoader();
+      new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: labels,
+          datasets: [{
+            label: "عدد المختبرات",
+            data: data,
+            backgroundColor: labels.map(l => COLORS[l] || "#999"),
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false }
+          }
+        }
+      });
+    }, 50);
+  }
 
-  loadUser(()=>{
-    google.script.run
-      .withSuccessHandler(labs=>{
+  /* ================= INIT ================= */
+  function init() {
 
-        state.labs = labs;
+    showLoader();
 
-        hideLoader();
+    loadUser(() => {
+      google.script.run
+        .withSuccessHandler(labs => {
 
-        renderSchools();
-        buildSchoolsMenu();
-      })
-      .withFailureHandler(err=>{
-        hideLoader();
-        console.error(err);
+          state.labs = labs;
 
-        document.getElementById("app").innerHTML = `
+          hideLoader();
+
+          if (!restoreState()) {
+            renderSchools();
+          }
+          buildSchoolsMenu();
+        })
+        .withFailureHandler(err => {
+          hideLoader();
+          console.error(err);
+
+          document.getElementById("app").innerHTML = `
           <div style="padding:30px;text-align:center;color:#e53935;">
             حدث خطأ أو لا تملك صلاحية الدخول
           </div>
         `;
-      })
-      .getLabs(currentEmail, currentAuthToken);
+        })
+        .getLabs(currentEmail, currentAuthToken);
+    });
+  }
+
+  resolveClientEmail(init);
+
+  document.addEventListener("click", function (e) {
+    const mobileMenu = document.querySelector(".menu");
+    const menu = document.getElementById("userMenu");
+    const user = document.querySelector(".user");
+
+    if (mobileMenu && !mobileMenu.contains(e.target) && !e.target.closest(".hamburger")) {
+      mobileMenu.classList.remove("show");
+    }
+
+    if (!menu || !user) return;
+
+    if (!user.contains(e.target)) {
+      menu.classList.remove("show");
+    }
   });
-}
-
-resolveClientEmail(init);
-
-document.addEventListener("click", function(e){
-  const mobileMenu = document.querySelector(".menu");
-  const menu = document.getElementById("userMenu");
-  const user = document.querySelector(".user");
-
-  if(mobileMenu && !mobileMenu.contains(e.target) && !e.target.closest(".hamburger")){
-    mobileMenu.classList.remove("show");
-  }
-
-  if(!menu || !user) return;
-
-  if(!user.contains(e.target)){
-    menu.classList.remove("show");
-  }
-});
 
 </script>
-
