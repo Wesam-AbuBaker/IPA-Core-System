@@ -16,15 +16,24 @@ function doGet(e) {
   const email = resolveEmail_(e);
   const user = getUserDataByEmail_(email);
 
+  if (!email) {
+    return HtmlService.createHtmlOutput(`
+      <div style="padding:30px;text-align:center;font-family:sans-serif">
+        يرجى تسجيل الدخول بحساب Google
+      </div>
+    `);
+  }
+
   if (!user.authorized) {
     const t = HtmlService.createTemplateFromFile('Unauthorized');
-    t.email = email || 'غير معروف';
+    t.email = email;
     return t.evaluate().setTitle('غير مصرح');
   }
 
   const t = HtmlService.createTemplateFromFile('Index');
-  t.initialEmail = user.email || email || '';
+  t.initialEmail = email;
   t.authToken = createAuthSession_(user);
+
   return t.evaluate().setTitle('IPA Dashboard');
 }
 
@@ -46,33 +55,12 @@ function resolveRequestContext_(e) {
 }
 
 function resolveEmail_(e) {
-  let email = '';
-
-  if (e && e.parameter && e.parameter.email) {
-    email = String(e.parameter.email).trim().toLowerCase();
+  try {
+    const email = Session.getActiveUser().getEmail();
+    return (email || '').trim().toLowerCase();
+  } catch (err) {
+    return '';
   }
-
-  if (!email && e && e.parameters && e.parameters.email && e.parameters.email.length) {
-    email = String(e.parameters.email[0]).trim().toLowerCase();
-  }
-
-  if (!email && e && e.queryString) {
-    const match = String(e.queryString).match(/(?:^|&)email=([^&]+)/);
-    if (match && match[1]) {
-      email = decodeURIComponent(match[1]).trim().toLowerCase();
-    }
-  }
-
-  // fallback for domain users only
-  if (!email) {
-    try {
-      email = Session.getActiveUser().getEmail().toLowerCase();
-    } catch (err) {
-      email = '';
-    }
-  }
-
-  return email;
 }
 
 function resolveAuthEmail_(email) {
