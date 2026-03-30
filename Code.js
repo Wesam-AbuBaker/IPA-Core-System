@@ -203,12 +203,24 @@ function getLabs(email, authToken) {
 
   let labs = data
     .filter(r => r[0])
-    .map(r => ({
-      labName: normalizeText_(r[0]),
-      school: normalizeText_(r[1]),
-      sheetId: normalizeText_(r[2])
-    }));
+    .map(r => {
+  const fullName = normalizeText_(r[0]);
 
+  const isStudent = fullName.toUpperCase().includes("STUDENT");
+  const isTeacher = fullName.toUpperCase().includes("TEACHER");
+
+  const baseName = fullName
+    .replace(/-STUDENT/i, "")
+    .replace(/-TEACHER/i, "")
+    .trim();
+
+  return {
+    labName: baseName,
+    type: isStudent ? "STUDENT" : isTeacher ? "TEACHER" : "UNKNOWN",
+    school: normalizeText_(r[1]),
+    sheetId: normalizeText_(r[2])
+  };
+});
   if (!isAllValue_(user.school) && !isNoneValue_(user.school)) {
     const allowedSchools = parseAllowedValues_(user.school).map(normalizeComparable_);
     labs = labs.filter(l => allowedSchools.includes(normalizeComparable_(l.school)));

@@ -314,6 +314,16 @@
 
     const labs = state.labs.filter(l => l.school === state.currentSchool);
 
+// 🔥 grouping
+const grouped = {};
+
+labs.forEach(l => {
+  if (!grouped[l.labName]) {
+    grouped[l.labName] = {};
+  }
+  grouped[l.labName][l.type] = l;
+});
+
     let allSettings = [];
 
     try {
@@ -339,27 +349,28 @@
     const grid = document.createElement("div");
     grid.className = "grid fade";
 
-    labs.forEach((lab, i) => {
+    Object.keys(grouped).forEach(name => {
 
-      const settings = allSettings[i] || [];
-      const mode = settings.find(s => s.setting === "Mode")?.value || "none";
+  const group = grouped[name];
 
-      const card = document.createElement("div");
-      card.className = "card";
+  const card = document.createElement("div");
+  card.className = "card";
 
-      card.innerHTML = `
-      <div class="card-icon"><i class="fa-solid fa-desktop"></i></div>
-      <div class="card-title">${lab.labName}</div>
-      <div class="status" style="background:${COLORS[mode]}">${mode}</div>
-    `;
+  card.innerHTML = `
+    <div class="card-icon"><i class="fa-solid fa-desktop"></i></div>
+    <div class="card-title">${name}</div>
 
-      card.onclick = () => {
-        state.currentLab = lab;
-        renderSettings(lab);
-      };
+    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
 
-      grid.appendChild(card);
-    });
+      ${group.STUDENT ? `<button onclick="openLab('${group.STUDENT.sheetId}')">👨‍🎓 Students</button>` : ""}
+
+      ${group.TEACHER ? `<button onclick="openLab('${group.TEACHER.sheetId}')">👨‍🏫 Teacher</button>` : ""}
+
+    </div>
+  `;
+
+  grid.appendChild(card);
+});
 
     app.appendChild(grid);
   }
