@@ -255,11 +255,12 @@
 
   /* ================= OPEN LAB ================= */
   function openLab(id) {
-    saveState();
     const lab = state.labs.find(l => l.sheetId === id);
 
     state.currentLab = lab;
     state.currentSchool = lab.school;
+
+    saveState();
 
     renderSettings(lab);
     schoolsMenu.classList.remove("active");
