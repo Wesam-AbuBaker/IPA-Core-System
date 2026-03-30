@@ -360,13 +360,9 @@ labs.forEach(l => {
     <div class="card-icon"><i class="fa-solid fa-desktop"></i></div>
     <div class="card-title">${name}</div>
 
-    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
-
-      ${group.STUDENT ? `<button onclick="openLab('${group.STUDENT.sheetId}')">👨‍🎓 Students</button>` : ""}
-
-      ${group.TEACHER ? `<button onclick="openLab('${group.TEACHER.sheetId}')">👨‍🏫 Teacher</button>` : ""}
-
-    </div>
+    card.onclick = () => {
+  openLabGroup(group);
+      };
   `;
 
   grid.appendChild(card);
@@ -375,8 +371,38 @@ labs.forEach(l => {
     app.appendChild(grid);
   }
 
+  function openLabGroup(group) {
+
+  state.currentLabGroup = group;
+
+  const container = document.getElementById("content");
+  container.innerHTML = "";
+
+  const title = document.createElement("h2");
+  title.textContent = Object.values(group)[0].labName;
+  container.appendChild(title);
+
+  // ===== Students =====
+  if (group.STUDENT) {
+    const sTitle = document.createElement("h3");
+    sTitle.textContent = "👨‍🎓 Students";
+    container.appendChild(sTitle);
+
+    renderSettings(group.STUDENT, container);
+  }
+
+  // ===== Teacher =====
+  if (group.TEACHER) {
+    const tTitle = document.createElement("h3");
+    tTitle.textContent = "👨‍🏫 Teacher";
+    container.appendChild(tTitle);
+
+    renderSettings(group.TEACHER, container);
+  }
+}
+
   /* ================= SETTINGS ================= */
-  function renderSettings(lab) {
+  function renderSettings(lab, customContainer = null) {
 
     showLoader();
 
@@ -384,15 +410,17 @@ labs.forEach(l => {
 
       hideLoader();
 
-      app.innerHTML = `
-      <div class="breadcrumb">
-        <span onclick="navigate('schools')">الرئيسية</span>
-        <span onclick="renderLabs()">${state.currentSchool}</span>
-        <span>${lab.labName}</span>
-      </div>
-    `;
+      if (!customContainer) {
+  app.innerHTML = `
+    <div class="breadcrumb">
+      <span onclick="navigate('schools')">الرئيسية</span>
+      <span onclick="renderLabs()">${state.currentSchool}</span>
+      <span>${lab.labName}</span>
+    </div>
+  `;
+}
 
-      const container = document.createElement("div");
+      const container = customContainer || document.createElement("div");
       container.className = "settings fade";
 
       settings.forEach(s => {
@@ -456,7 +484,9 @@ labs.forEach(l => {
         container.appendChild(div);
       });
 
-      app.appendChild(container);
+      if (!customContainer) {
+  app.appendChild(container);
+}
 
     }).getLabSettings(lab.sheetId, currentEmail, currentAuthToken)
   }
